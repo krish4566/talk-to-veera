@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Veera Question Time</title>
+</head>
+<body>
+    <h1>Talk to Veera</h1>
+    <textarea id="prompt" rows="4" cols="50" placeholder="Enter your prompt here..."></textarea>
+    <button onclick="sendMessage()">Send</button>
+    <div id="response"></div>
+
+    <script>
+        const API_KEY = 'AIzaSyBxcFV18VvEUTsKDnxuOp1aVJgP6GrA_6A'; // **VERY IMPORTANT: DO NOT HARDCODE IN PRODUCTION**
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+
+        async function sendMessage() {
+            const promptInput = document.getElementById('prompt').value;
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerText = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{ text: promptInput }]
+                        }]
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    responseDiv.innerText = `Error: ${response.status} - ${error.error.message || 'Something went wrong'}`;
+                    return;
+                }
+
+                const data = await response.json();
+                console.log(data); // Log the full response for debugging
+
+                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+                    responseDiv.innerText = data.candidates[0].content.parts[0].text;
+                } else {
+                    responseDiv.innerText = 'No response received.';
+                }
+
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                responseDiv.innerText = `Error: ${error.message || 'Failed to send request'}`;
+            }
+        }
+    </script>
+</body>
+</html>
