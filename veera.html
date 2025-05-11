@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asking Veera</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the message bubbles */
+        .message-container { /* Added a container for message and buttons */
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 0.5rem;
+            max-width: 85%;
+        }
+        .user-message-container {
+            margin-left: auto;
+            align-items: flex-end; /* Align content to the right */
+        }
+        .veera-message-container {
+            margin-right: auto;
+            align-items: flex-start; /* Align content to the left */
+        }
+        .message {
+            border-radius: 1.25rem; /* Rounded corners */
+            padding: 0.75rem 1rem;    /* Padding inside the bubble */
+            display: inline-block;  /* Important for width and alignment */
+            word-wrap: break-word; /* Ensure long words break */
+        }
+        .user-message {
+            background-color: #e0f2fe; /* Light blue for user messages */
+            color: #0369a1;       /* Darker blue text */
+        }
+        .veera-message {
+            background-color: #f0f4c3;  /* Light yellow for Veera's messages */
+            color: #1a5235;       /* Dark green text */
+        }
+        .system-message {
+            background-color: #f0f0f0; /* Light gray for system messages */
+            color: #444444;
+            margin: 0.5rem auto;
+            text-align: center;
+            width: 90%;
+            border-radius: 1.25rem;
+            padding: 0.75rem 1rem;
+        }
+        .loading-indicator {
+            display: inline-flex;
+            align-items: center;
+        }
+        .loading-indicator span {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            background-color: #4a5568; /* Gray dots */
+            margin: 0 0.25rem;
+            animation: pulse 1.5s infinite;
+        }
+        .loading-indicator span:nth-child(2) {
+            animation-delay: 0.5s;
+        }
+        .loading-indicator span:nth-child(3) {
+            animation-delay: 1s;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.2; }
+            50% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+        /* Styles for action buttons (Edit, Regenerate) */
+        .action-button {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            margin-top: 0.25rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            background-color: #cbd5e1; /* Lighter gray */
+            color: #2d3748; /* Darker gray text */
+            border: none;
+        }
+        .action-button:hover {
+            background-color: #94a3b8; /* Medium gray on hover */
+        }
+
+        /* History Modal Styles */
+        .history-modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            padding-top: 60px;
+        }
+        .history-modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 700px;
+            border-radius: 10px;
+        }
+        .history-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+            margin-bottom: 10px;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .history-prompt {
+            font-weight: bold;
+            color: #0369a1;
+        }
+        .history-response {
+            color: #1a5235;
+            margin-top: 5px;
+            padding-left: 15px;
+        }
+        .close-modal-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-modal-button:hover,
+        .close-modal-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-100 to-pink-100 min-h-screen flex flex-col font-sans">
+    <header class="py-4 text-center">
+        <div class="flex justify-center items-center space-x-4">
+            <h1 class="text-2xl sm:text-3xl font-semibold text-gray-800">Asking Veera</h1>
+            <button id="view-history-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg px-4 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-400">View History</button>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4" id="chat-container">
+        <div class="system-message">
+            <p>Welcome! Ask me anything.</p>
+        </div>
+    </main>
+
+    <footer class="py-4 text-center">
+        <div class="flex items-center justify-center gap-2 p-2">
+            <textarea
+                id="prompt-input"
+                placeholder="Enter your question..."
+                rows="1"
+                class="w-full sm:w-3/4 md:w-1/2 px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white text-gray-700 shadow-sm"
+            ></textarea>
+            <button id="send-button" class="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold rounded-xl px-6 py-2 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition-colors duration-300">
+                Ask Veera
+            </button>
+        </div>
+    </footer>
+
+    <div id="history-modal" class="history-modal">
+        <div class="history-modal-content">
+            <span class="close-modal-button" id="close-history-modal">&times;</span>
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Chat History</h2>
+            <div id="history-content">
+                <p class="text-gray-500">No history yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const chatContainer = document.getElementById('chat-container');
+    const promptInput = document.getElementById('prompt-input');
+    const sendButton = document.getElementById('send-button');
+    const apiKey = 'AIzaSyBxcFV18VvEUTsKDnxuOp1aVJgP6GrA_6A'; // **Replace with your actual API key**
+    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'; // Updated model
+
+    let chatHistory = []; // To store chat history
+    let editingMessageId = null; // To track which message is being edited
+
+    // --- DOM Elements for History Modal ---
+    const historyModal = document.getElementById('history-modal');
+    const viewHistoryButton = document.getElementById('view-history-button');
+    const closeHistoryModalButton = document.getElementById('close-history-modal');
+    const historyContent = document.getElementById('history-content');
+
+
+    function generateUniqueId() {
+        return Date.now().toString(36) + Math.random().toString(36).substring(2);
+    }
+
+    function createMessageElement(text, sender, messageId) {
+        const messageContainer = document.createElement('div');
+        messageContainer.classList.add('message-container');
+        messageContainer.dataset.messageId = messageId; // Store messageId
+
+        if (sender === 'user') {
+            messageContainer.classList.add('user-message-container');
+        } else {
+            messageContainer.classList.add('veera-message-container');
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message');
+        messageDiv.classList.add(sender + '-message');
+        messageDiv.textContent = text;
+        messageContainer.appendChild(messageDiv);
+
+        if (sender === 'user') {
+            const editButton = document.createElement('button');
+            editButton.textContent = 'Edit';
+            editButton.classList.add('action-button');
+            editButton.onclick = () => handleEdit(messageId, text);
+            messageContainer.appendChild(editButton);
+        }
+        return messageContainer;
+    }
+
+    function createLoadingIndicator() {
+        const loadingDiv = document.createElement('div');
+        // Make loading indicator align left like Veera's messages
+        loadingDiv.classList.add('message-container', 'veera-message-container');
+        const innerLoadingDiv = document.createElement('div');
+        innerLoadingDiv.classList.add('message', 'veera-message', 'loading-indicator');
+        innerLoadingDiv.innerHTML = '<span></span><span></span><span></span>';
+        loadingDiv.appendChild(innerLoadingDiv);
+        return loadingDiv;
+    }
+
+    function handleEdit(messageId, currentText) {
+        promptInput.value = currentText;
+        editingMessageId = messageId;
+        sendButton.textContent = 'Update Veera';
+        promptInput.focus();
+    }
+
+    async function sendMessage() {
+        const promptText = promptInput.value.trim();
+        if (!promptText) return;
+
+        let currentUserMessageId;
+        let currentVeeraMessageId;
+
+        if (editingMessageId) {
+            // --- Editing existing message ---
+            const userMessageContainer = chatContainer.querySelector(`.user-message-container[data-message-id="${editingMessageId}"]`);
+            const veeraMessageContainer = chatContainer.querySelector(`.veera-message-container[data-message-id="${editingMessageId}-veera"]`); // Assuming Veera's response ID is related
+
+            if (userMessageContainer) {
+                userMessageContainer.querySelector('.message').textContent = promptText;
+            }
+            if (veeraMessageContainer) {
+                veeraMessageContainer.remove(); // Remove old Veera response
+            }
+            currentUserMessageId = editingMessageId;
+            currentVeeraMessageId = `${editingMessageId}-veera`; // Keep consistent ID linking
+        } else {
+            // --- Sending new message ---
+            currentUserMessageId = generateUniqueId();
+            currentVeeraMessageId = `${currentUserMessageId}-veera`; // Link Veera's message ID to user's
+
+            const userMessage = createMessageElement(promptText, 'user', currentUserMessageId);
+            chatContainer.appendChild(userMessage);
+        }
+
+        promptInput.value = ''; // Clear the input
+        sendButton.textContent = 'Ask Veera'; // Reset button text
+        editingMessageId = null; // Reset editing state
+
+        const loadingIndicator = createLoadingIndicator();
+        chatContainer.appendChild(loadingIndicator);
+        chatContainer.scrollTop = chatContainer.scrollHeight; // Scroll down
+
+        try {
+            const response = await fetch(`${apiUrl}?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: promptText }]
+                    }]
+                }),
+            });
+
+            chatContainer.removeChild(loadingIndicator); // Remove loading indicator
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+            }
+
+            const data = await response.json();
+            console.log("Gemini API Response:", data);
+
+            let responseText = 'No response received.';
+            if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+                responseText = data.candidates[0].content.parts[0].text;
+            }
+
+            const veeraMessage = createMessageElement(responseText, 'veera', currentVeeraMessageId);
+            chatContainer.appendChild(veeraMessage);
+
+            // --- Update or Add to History ---
+            const historyIndex = chatHistory.findIndex(item => item.id === currentUserMessageId);
+            if (historyIndex > -1) { // If editing, update history
+                chatHistory[historyIndex].prompt = promptText;
+                chatHistory[historyIndex].response = responseText;
+            } else { // If new, add to history
+                chatHistory.push({ id: currentUserMessageId, prompt: promptText, response: responseText });
+            }
+            updateHistoryModal(); // Refresh history display
+
+        } catch (error) {
+            console.error('Error calling Gemini API:', error);
+            if (chatContainer.contains(loadingIndicator)) {
+                chatContainer.removeChild(loadingIndicator);
+            }
+            const errorMessageText = `Error: ${error.message}. Please check your API key and network.`;
+            const systemErrorMsgId = generateUniqueId(); // Give system messages an ID too if needed
+            const errorMessage = createMessageElement(errorMessageText, 'system', systemErrorMsgId);
+            chatContainer.appendChild(errorMessage);
+        } finally {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    }
+
+    // --- History Modal Functions ---
+    function updateHistoryModal() {
+        historyContent.innerHTML = ''; // Clear previous content
+        if (chatHistory.length === 0) {
+            historyContent.innerHTML = '<p class="text-gray-500">No history yet.</p>';
+            return;
+        }
+
+        chatHistory.forEach(item => {
+            const historyItemDiv = document.createElement('div');
+            historyItemDiv.classList.add('history-item');
+
+            const promptP = document.createElement('p');
+            promptP.classList.add('history-prompt');
+            promptP.textContent = `You: ${item.prompt}`;
+            historyItemDiv.appendChild(promptP);
+
+            const responseP = document.createElement('p');
+            responseP.classList.add('history-response');
+            responseP.textContent = `Veera: ${item.response}`;
+            historyItemDiv.appendChild(responseP);
+
+            const regenerateButton = document.createElement('button');
+            regenerateButton.textContent = 'Regenerate';
+            regenerateButton.classList.add('action-button', 'mt-2'); // Added margin top
+            regenerateButton.onclick = () => {
+                promptInput.value = item.prompt; // Set input to this prompt
+                sendMessage(); // Send this prompt as a new message
+                historyModal.style.display = "none"; // Close modal after clicking
+            };
+            historyItemDiv.appendChild(regenerateButton);
+            historyContent.appendChild(historyItemDiv);
+        });
+    }
+
+    viewHistoryButton.onclick = () => {
+        updateHistoryModal();
+        historyModal.style.display = "block";
+    }
+
+    closeHistoryModalButton.onclick = () => {
+        historyModal.style.display = "none";
+    }
+
+    // Close modal if user clicks outside of it
+    window.onclick = (event) => {
+        if (event.target == historyModal) {
+            historyModal.style.display = "none";
+        }
+    }
+
+
+    // --- Event Listeners ---
+    sendButton.addEventListener('click', sendMessage);
+    promptInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+
+    promptInput.addEventListener('input', () => {
+        promptInput.style.height = 'auto';
+        promptInput.style.height = `${promptInput.scrollHeight}px`;
+    });
+    </script>
+</body>
+</html>
